@@ -48,40 +48,88 @@ in the direction of increasing effective stress.
 
 ### A.3 Step 2: Compute ground displacement
 
-```
-    disp(t) = z_ring(t_ref) − z_ring(t)          [metres of compaction]
-```
+There are three common sources. 2S-TOOL accepts any of them — the algorithm operates on
+relative changes in x, not on absolute values.
 
-where `t_ref` is the reference date (first measurement). Positive disp = compaction.
+#### Source 1: MLCW ring-level cumulative compaction (project default)
 
-```
-    Example: ring absolute elevation at t_ref = 15/1/12 is 42.500 m
-
-    t        z_ring(t) [m]    z_ring(t_ref) [m]    disp(t) [m]
-    ───────  ───────────────   ──────────────────   ────────────
-    15/1/12      42.500             42.500             0.000000
-    15/2/09      42.490             42.500             0.010000
-    15/3/19      42.485             42.500             0.015000
-                             ↑
-                ring sinks → positive disp = compaction
-```
-
-Alternatively, if you only have inter-ring distances (layer thickness):
+The standard project pipeline (`prepare_2stool_inputs.py --raw`) reads raw ring-by-ring
+MLCW measurements, sums rings within each hydrogeological layer, and converts to metres:
 
 ```
-    L(t) = z_ring_upper(t) − z_ring_lower(t)
-    disp(t) = L(t_ref) − L(t)          [compaction of layer between two rings]
+    disp(t) = compaction_MM(t) / 1000        [mm → m]
 ```
+
+where `compaction_MM(t)` is the cumulative compaction (mm) at time `t` since the MLCW
+station was installed. Values are **negative** in the project sign convention
+(negative = subsidence). The first value is NOT zero — compaction was already
+accumulating before the first InSAR-aligned date.
+
+```
+    Example: TUKU_F1 real input file (159 points, 2015–2025):
+
+    disp range: [−0.029, −0.011] m
+    depth range: [8.24, 22.36] m
+
+    First row:  x = −0.01172 m  (already ~12 mm of compaction by Jan 2015)
+    Last row:   x = −0.02801 m  (~28 mm cumulative by Dec 2025)
+```
+
+#### Source 2: MLCW reconstructed layer-grouped data
+
+The `--no-raw` flag uses precomputed reconstructed data from
+`data/mlcw/group_byLayer/{STATION}_reconst_grouped.csv`. Same mm→m conversion and sign
+convention applies.
+
+#### Source 3: Manual from ring absolute elevation
+
+If you have raw leveling measurements of individual magnetic rings:
+
+```
+    L(t) = z_ring_upper(t) − z_ring_lower(t)     [layer thickness, m]
+    disp(t) = L(t) − L(t_ref)                    [compaction since reference, m]
+```
+
+where `t_ref` can be the first measurement date. This gives **positive** values for
+compaction. 2S-TOOL accepts either sign convention — the S_kv and S_ke magnitude is
+unchanged; only the sign of the output S values flips.
+
+```
+    Example: ring elevations at t_ref = 2003-12-06
+
+    t           z_upper [m]   z_lower [m]   L(t) [m]    disp(t) [m]
+    ─────────   ───────────   ───────────   ─────────   ───────────
+    2003-12-06     8.775        11.938        3.163       0.000
+    2004-01-15     8.760        11.920        3.160       0.003
+    2004-03-01     8.750        11.910        3.160       0.003
+                        ↓
+            ring sinks → L decreases → positive disp = compaction
+```
+
+#### Source 4: InSAR surface displacement
+
+If you use InSAR surface displacement directly (e.g., from
+`data/insar/InSAR_measures_at_MLCW.csv`), values are already in metres. The project
+convention is positive = subsidence (InSAR is negated on load), so no conversion is
+needed — but check your dataset's sign convention.
 
 ### A.4 Step 3: Assemble the stress-strain table
 
 ```
     x(t) = disp(t)          [m, horizontal axis — ground displacement]
     y(t) = depth(t)         [m, vertical axis — groundwater depth]
-
-    Convention: positive x = compaction (plot reversed: right → left = more compaction)
-                positive y = deeper water = higher effective stress
 ```
+
+**Key point:** 2S-TOOL only cares about the **relationship** between x and y. The
+absolute values don't matter — the algorithm uses:
+- `polyfit(x, y, 1)` for S_kv (depends on slope, not offset)
+- `max(y) − min(y)` for peak detection thresholds (depends on range, not absolute y)
+- Relative x-proximity for x-criterion grouping
+
+This means the same S_kv and S_ke values will be computed regardless of whether:
+- x values are negative (MLCW project convention) or positive (manual ring convention)
+- x starts at 0 (manual) or at a non-zero cumulative value (pipeline)
+- y = depth = −head (our convention) or y = head (wrong convention — see A.5)
 
 ### A.5 Why you cannot skip the head→depth conversion
 
