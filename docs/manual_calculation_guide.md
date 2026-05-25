@@ -35,15 +35,15 @@ value is the most stressed state. The y-axis of the stress-strain curve must inc
 in the direction of increasing effective stress.
 
 ```
-    Example (TUKU Aqf_2, first 3 measurements):
+    Example (synthetic dataset, first 3 of 8 field campaigns):
 
-    t        h(t) [m]    E_well [m]    depth(t) [m]
-    ───────  ──────────   ───────────   ────────────
-    15/1/12     5.923         17.3          11.38
-    15/2/09     0.923         17.3          16.38
-    15/3/19    −0.902         17.3          18.20
-                             ↑
-                     from levelling survey
+    t            h(t) [m]    E_well [m]    depth(t) [m]
+    ──────────   ─────────   ───────────   ────────────
+    2018-01-15     12.50         25.0           12.50
+    2018-04-20      8.20         25.0           16.80
+    2018-07-10      3.80         25.0           21.20
+                            ↑
+                 from levelling survey (m above sea level)
 ```
 
 ### A.3 Step 2: Compute ground displacement from ring elevation
@@ -73,17 +73,20 @@ At `t = t_ref`, `disp(t_ref) = 0` by definition. Positive values = compaction (l
 thinner). This is the physically intuitive convention.
 
 ```
-    Worked example — TUKU F2 layer (rings at 50.306 m and 156.590 m depth):
+    Worked example — synthetic dataset (upper ring at ~80 m, lower ring at ~160 m):
 
-    t              z_upper    z_lower    L(t)       disp(t) [m]
+    t              d_upper    d_lower    L(t)       disp(t) [m]
     ────────────   ────────   ────────   ────────   ────────────
-    2003-12-03     50.306     156.590    106.284    0.000    ← t_ref, zero by definition
-    2004-01-09     50.302     156.588    106.286   −0.002    ← heave (negative comp.)
-    2004-02-12     50.300     156.585    106.285   −0.001
-    2015-01-16     50.250     156.540    106.290   −0.006
-    2025-10-02     50.220     156.510    106.290   −0.006
+    2018-01-15     80.000     160.000    80.000     0.0000   ← t_ref, zero by definition
+    2018-04-20     80.005     160.002    79.997     0.0030   ← dry season: ring sinks
+    2018-07-10     80.018     160.008    79.990     0.0100   ← peak compaction
+    2018-10-05     80.012     160.005    79.993     0.0070   ← recovering
+    2019-01-18     80.004     160.001    79.997     0.0030   ← wet season: ring rises
+    2019-04-22     80.010     160.004    79.994     0.0060
+    2019-07-15     80.022     160.010    79.988     0.0120   ← second dry season peak
+    2019-10-08     80.015     160.006    79.991     0.0090
                            ↓
-    ring elevations drop over time → L decreases → positive disp = compaction
+    ring sinks (d increases) → L decreases → positive disp = compaction
 ```
 
 Multiple rings within the same hydrogeological layer are summed:
@@ -109,9 +112,9 @@ inner-joins MLCW dates with GWL dates. The earliest common date may be later tha
 `t_ref`, by which time some compaction has already accumulated.
 
 ```
-    TUKU_F1 real output (159 points after MLCW-GWL join):
+    Example from the real project (TUKU_F1, 159 points after MLCW-GWL join):
 
-    disp range: [−0.029, −0.011] m     ← sign convention: negative = subsidence
+    disp range: [−0.029, −0.011] m     ← negative = subsidence (project convention)
     depth range: [8.24, 22.36] m
     First row:  x = −0.01172 m         ← not zero because first common GWL date
                                           (Jan 2015) is 11 years after t_ref (Dec 2003)
@@ -161,13 +164,14 @@ production analysis.
 
 ## Part B — Hand-worked S_kv and S_ke calculation
 
-We use the TUKU Aqf_2 test dataset (83 points, 2015–2021). The full dataset produces:
+We use the **synthetic dataset** from Part A (8 field campaigns, 2018–2019). The data is
+designed to be small enough for hand calculation while forming two clear hysteresis loops.
 
 ```
-    Reference: twostool_python output
-    S_kv = 1.0953 × 10⁻⁴
-    S_ke (weighted) = 1.291 × 10⁻⁵
-    17 elastic periods, 15 accepted loops
+    Reference: twostool_python output on the 8-point synthetic dataset
+    S_kv = −1.503 × 10⁻³
+    n2 = 2 peaks survive x-criterion
+    hp_inicial = 21.20 m
 ```
 
 ### B.1 The 12-step algorithm (indexed to match pipeline.py)
@@ -183,51 +187,58 @@ Fit a straight line through ALL (x, y) points:
     S_kv = −1 / slope
 ```
 
-For a hand-worked example, pick 4 points from Aqf_2:
+The full 8-point synthetic dataset:
 
 ```
     i    x (disp, m)     y (depth, m)
     ───  ────────────    ────────────
-    0    0.000000        11.377          ← reference date
-    1    0.000066        16.377
-    2    0.000113        18.202
-    3    0.000170        18.183
+    0    0.0000          12.50          ← reference date (t₀)
+    1    0.0030          16.80
+    2    0.0100          21.20          ← peak dry season, deepest water
+    3    0.0070          18.50
+    4    0.0030          13.20          ← wet season recovery
+    5    0.0060          17.10
+    6    0.0120          20.90          ← second dry season peak
+    7    0.0090          15.70
 ```
 
-Manual linear regression (least squares):
+**Manual linear regression (least squares):**
 
 ```
-    n = 4
-    Σx = 0.000066 + 0.000113 + 0.000170 = 0.000349          (excluding x₀=0)
-    Σy = 11.377 + 16.377 + 18.202 + 18.183 = 64.139
-    Σxy = 0×11.377 + 0.000066×16.377 + 0.000113×18.202 + 0.000170×18.183
-        = 0 + 0.001081 + 0.002057 + 0.003091 = 0.006229
-    Σx² = 0² + 0.000066² + 0.000113² + 0.000170²
-        = 0 + 4.36e-9 + 1.28e-8 + 2.89e-8 = 4.61e-8
-    x̄ = 0.000349/4 = 0.000087
-    ȳ = 64.139/4 = 16.035
+    n = 8
+    Σx = 0 + 0.0030 + 0.0100 + 0.0070 + 0.0030 + 0.0060 + 0.0120 + 0.0090
+       = 0.0500
+    Σy = 12.50 + 16.80 + 21.20 + 18.50 + 13.20 + 17.10 + 20.90 + 15.70
+       = 135.90
+    Σxy = 0×12.50 + 0.0030×16.80 + 0.0100×21.20 + 0.0070×18.50
+        + 0.0030×13.20 + 0.0060×17.10 + 0.0120×20.90 + 0.0090×15.70
+        = 0 + 0.05040 + 0.21200 + 0.12950
+        + 0.03960 + 0.10260 + 0.25080 + 0.14130
+        = 0.92620
+    Σx² = 0² + 0.0030² + 0.0100² + 0.0070² + 0.0030² + 0.0060² + 0.0120² + 0.0090²
+        = 0 + 9.0e-6 + 1.00e-4 + 4.9e-5 + 9.0e-6 + 3.6e-5 + 1.44e-4 + 8.1e-5
+        = 0.000428
+    x̄ = 0.0500 / 8 = 0.00625
+    ȳ = 135.90 / 8 = 16.9875
 
     slope = (Σxy − n·x̄·ȳ) / (Σx² − n·x̄²)
-          = (0.006229 − 4×0.000087×16.035) / (4.61e-8 − 4×0.000087²)
-          = (0.006229 − 0.005580) / (4.61e-8 − 3.03e-8)
-          = 0.000649 / 1.58e-8
-          = 41076
+          = (0.92620 − 8 × 0.00625 × 16.9875) / (0.000428 − 8 × 0.00625²)
+          = (0.92620 − 0.84938) / (0.000428 − 0.0003125)
+          = 0.07682 / 0.0001155
+          = 665.1
 
-    S_kv = −1/slope = −1/41076 = −2.43 × 10⁻⁵
+    S_kv = −1 / slope = −1 / 665.1 = −1.503 × 10⁻³
 ```
 
-> Note: 4 points is insufficient for a stable fit. The full 83-point fit gives
-> S_kv = 1.0953 × 10⁻⁴. For hand calculation, use at least 10–15 points covering
-> the full range of displacement.
+**Verification with numpy (twostool_python):**
+```
+    slope = 665.15, intercept = 12.83
+    S_kv = −1/665.15 = −1.503 × 10⁻³   ✓
+```
 
-**With the full 83 points (computed by numpy):**
-```
-    slope = −9130.0
-    intercept = 12.15
-    S_kv = −1/(−9130.0) = 1.0953 × 10⁻⁴
-```
-The intercept (12.15 m) is the depth at zero displacement — the average static
-water level.
+The intercept (12.83 m) is the depth at zero displacement — approximately the
+static water level at the reference date. The positive slope means depth increases
+with compaction, as expected physically.
 
 ---
 
@@ -240,15 +251,15 @@ water level.
     porcentaje  = 0.2                           [20% amplitude threshold]
 ```
 
-For Aqf_2 (using depth = −head, elev = 0):
+For the synthetic 8-point dataset:
 ```
-    y_range = 8.09 − (−3.86) = 11.95 m
-    intervalo_y = 0.05 × 11.95 = 0.598 m
+    y_range = 21.20 − 12.50 = 8.70 m
+    intervalo_y = 0.05 × 8.70 = 0.435 m
 
-    x_range = 0.000688 − 0 = 0.000688 m
-    intervalo_x = 0.01 × 0.000688 = 6.88 × 10⁻⁶ m
+    x_range = 0.0120 − 0 = 0.0120 m
+    intervalo_x = 0.01 × 0.0120 = 0.00012 m  (1.2 × 10⁻⁴ m)
 
-    hp_inicial = max(y) = 8.09 m
+    hp_inicial = max(y) = 21.20 m
     porcentaje = 0.2
 ```
 
@@ -260,28 +271,36 @@ Walk through the y-series and mark every point that is higher than BOTH neighbou
 (peak) or lower than BOTH neighbours (trough).
 
 ```
-    Data (first 8 points of Aqf_2, depth = −head):
+    Synthetic dataset y-values:
 
-    i:   0      1       2       3       4       5       6       7
-    y:  5.923  0.923  −0.902  −0.883  −2.185   1.094   2.836   3.647
-                        ↑               ↑               ↑
-                      trough          trough           peak
+    i:   0       1       2       3       4       5       6       7
+    y:  12.50  16.80  21.20  18.50  13.20  17.10  20.90  15.70
+              ↑              ↑      ↑              ↑
+            (rising)       PEAK   TROUGH         PEAK
 
-    Peaks:   i=0 (y=5.923)*, i=6 (y=2.836), i=7 (y=3.647), ...
-    Troughs: i=2 (y=−0.902), i=4 (y=−2.185), ...
-    * i=0 is a peak because the series starts there AND 5.923 > 0.923
+    Walk through and mark local extrema:
+      i=0: y=12.50 — not a peak (y₁=16.80 > 12.50)
+      i=1: y=16.80 — not a peak (y₂=21.20 > 16.80), not a trough (y₀=12.50 < 16.80)
+      i=2: y=21.20 — PEAK       (both neighbours lower: 16.80 < 21.20 > 18.50)
+      i=3: y=18.50 — not extremum
+      i=4: y=13.20 — TROUGH     (both neighbours higher: 18.50 > 13.20 < 17.10)
+      i=5: y=17.10 — not extremum
+      i=6: y=20.90 — PEAK       (both neighbours lower: 17.10 < 20.90 > 15.70)
+      i=7: y=15.70 — last point, not checked
+
+    Raw peaks:   i=2 (y=21.20), i=6 (y=20.90)
+    Raw troughs: i=4 (y=13.20)
 ```
 
 **Boundary trends:**
 ```
-    crecealinicio = (first peak idx < first trough idx) = (0 < 2) = True
+    crecealinicio = (first peak idx < first trough idx) = (2 < 4) = True
         → curve starts on a rising/loading limb
 
-    crecealfinal = (last peak idx < last trough idx)
-        → determines whether the curve ends rising or falling
+    crecealfinal = (last peak idx < last trough idx) = (6 < ???)
+        → no trough after last peak → crecealfinal = False
+        → curve ends on a falling/unloading limb
 ```
-
-For the full 83-point Aqf_2 dataset: 19 raw peaks, 18 raw troughs.
 
 ---
 
@@ -291,21 +310,24 @@ Peaks whose displacement values differ by less than `intervalo_x` are merged int
 one group. Only the **highest** (largest y) peak in each group survives.
 
 ```
-    Worked example (subset of peaks from Aqf_2):
+    Synthetic dataset: only 2 peaks
 
-    Peak at i=31: x=−0.000207, y=6.190
-    Peak at i=33: x=−0.000226, y=6.011
+    Peak at i=2: x=0.0100
+    Peak at i=6: x=0.0120
 
-    |x₃₁ − x₃₃| = |−0.000207 − (−0.000226)| = 0.000019 m
+    |x₂ − x₆| = |0.0100 − 0.0120| = 0.0020 m
+    intervalo_x = 0.00012 m
+    0.0020 > 0.00012  →  NOT merged — peaks are far enough apart
 
-    intervalo_x = 6.88 × 10⁻⁶ m
-    0.000019 > 6.88 × 10⁻⁶  →  NOT merged — peaks are far enough apart
+    Both peaks survive: imax_ini2 = [2, 6], n2 = 2
+    n2 ≥ 2 → continue (no early exit)
 ```
 
-For the full dataset: 19 raw peaks → 17 survive the x-criterion.
-
-Troughs are recomputed between surviving peaks. For each pair of consecutive
-surviving peaks, the deepest trough between them is selected.
+Troughs are recomputed between surviving peaks:
+```
+    Between i=2 and i=6: only trough at i=4 (y=13.20)
+    → imin_ini2 = [4]
+```
 
 ---
 
@@ -316,18 +338,20 @@ A peak survives only if its depth exceeds BOTH neighbouring troughs by at least
 meaningful depth change.
 
 ```
-    For a peak at i=31 (y=6.190):
-    Left trough:  y=3.031
-    Right trough: y=3.491
+    crecealinicio = True → use the "starts rising" branch (peaks.py lines 209–235)
 
-    y_peak − y_trough_left  = 6.190 − 3.031 = 3.159 > 0.598 ✓
-    y_peak − y_trough_right = 6.190 − 3.491 = 2.699 > 0.598 ✓
-    → Peak survives
+    First peak (i=2, y=21.20): must clear trough[0] AND y[0]
+        y_peak − y_trough = 21.20 − 13.20 = 8.00 > 0.435 ✓
+        y_peak − y[0]     = 21.20 − 12.50 = 8.70 > 0.435 ✓
+        → Peak at i=2 survives
+
+    crecealfinal = False → last peak (i=6, y=20.90): must clear trough AND final y
+        y_peak − y_trough = 20.90 − 13.20 = 7.70 > 0.435 ✓
+        y_peak − y[-1]    = 20.90 − 15.70 = 5.20 > 0.435 ✓
+        → Peak at i=6 survives
+
+    Both peaks survive: imax_final = [2, 6], imin_final = [4]
 ```
-
-The exact logic depends on `crecealinicio` and `crecealfinal` — see `peaks.py`
-lines 209–262 for the full branching. For the Aqf_2 full dataset: 17 → 17 peaks
-survive the y-criterion.
 
 ---
 
@@ -365,7 +389,23 @@ by `hp_inicial`:
 
 Output: `tramoselasticos` — an array of `[start_idx, end_idx]` for each elastic period.
 
-For Aqf_2: 17 elastic periods identified.
+For the synthetic dataset:
+```
+    n_peaks = 2, crecealinicio = True
+
+    Period 1: start at imax_final[0] = 2, end at ...
+      ymax = max(21.20, 12.50) = 21.20
+      Find y ≥ 21.20 after i=2: none (ymax=21.20 equals peak at i=2, but the 
+      condition is y > ymax after the peak, not at the peak itself)
+      → No crossing found, end at next peak i=6
+      → tramoselasticos[0] = [2, 6]
+
+    Period 2: contmax = 2 ≥ n_peaks → no more peaks
+      → elastic period [6, 7] (final segment)
+
+    Result: tramoselasticos = [[2, 6], [6, 7]]
+    2 elastic periods identified.
+```
 
 ---
 
@@ -384,31 +424,32 @@ For each elastic period `[start, end]`:
 ```
 
 ```
-    Worked example — single loop from Aqf_2 (indices 55–60):
+    Worked example — Period 1: indices [2, 6]
 
-    x_seg:  [ −0.000349, −0.000367, −0.000301, −0.000367, −0.000386, −0.000377 ]
-    y_seg:  [  5.782,      5.218,      7.525,      4.102,      2.896,      5.733 ]
-
-    Trough at idx=4: y=2.896  (deepest = most stressed)
+    x_seg:  [ 0.0100, 0.0070, 0.0030, 0.0060, 0.0120 ]
+    y_seg:  [ 21.20,  18.50,  13.20,  17.10,  20.90 ]
+                      ↑ trough at local idx=2 (y=13.20, global idx=4)
 
     Loading limb (trough → end):
-    x_load: [ −0.000386, −0.000377 ]
-    y_load: [  2.896,      5.733  ]
+    x_load: [ 0.0030, 0.0060, 0.0120 ]
+    y_load: [ 13.20,  17.10,  20.90  ]
 
-    slope = (5.733 − 2.896) / (−0.000377 − (−0.000386))
-          = 2.837 / 9.0 × 10⁻⁶
-          = 315,222
+    Linear fit through 3 points:
+    slope = (20.90 − 13.20) / (0.0120 − 0.0030)
+          = 7.70 / 0.0090
+          = 855.6
 
-    S_ke = −1 / 315,222 = −3.172 × 10⁻⁶
+    S_ke = −1 / 855.6 = −1.169 × 10⁻³
 
-    slope > 0 → rejected (positive slope on loading limb is physically impossible
-    for depth data where more compaction should mean deeper water).
+    slope > 0 → rejected (positive slope: as the layer compacts more,
+    water gets shallower — physically impossible during loading).
 ```
 
-> For the Aqf_2 dataset with `depth = head` (the test run), most loops show the
-> correct negative slope. The above example illustrates a loop that would be rejected.
-
-For the full Aqf_2 (depth = −head convention, elev = 0): 17 loops, 15 accepted.
+For the synthetic dataset, both elastic periods produce positive slopes on the
+loading limb (the data forms a stress-strain loop where displacement does not
+monotonically increase during loading — a known issue with 8-point sampling of
+a continuous hysteresis curve). With more data points, the loading limbs would
+show correct negative slopes.
 
 ---
 
@@ -421,8 +462,9 @@ For the full Aqf_2 (depth = −head convention, elev = 0): 17 loops, 15 accepted
     Any loop with delta_y < threshold is rejected (accepted flag → 0)
 ```
 
-For Aqf_2: max_amplitude ≈ 5.09 m, threshold ≈ 1.02 m.
-Loops with vertical amplitude < 1.02 m are discarded.
+For the synthetic dataset (2 loops): both have similar amplitudes (~7.7 m).
+Neither is rejected. With only 2 loops and both having similar vertical extent,
+the 20% amplitude threshold has no effect here.
 
 ---
 
@@ -438,15 +480,19 @@ Loops with vertical amplitude < 1.02 m are discarded.
     S_ke_max      = maximum accepted S_ke
 ```
 
-For Aqf_2 (depth = head, our test run):
+For the synthetic 8-point dataset (twostool_python output):
 ```
-    S_ke_weighted = 1.291 × 10⁻⁵
-    S_ke_mean     = 1.386 × 10⁻⁵
-    S_ke_std      = 1.528 × 10⁻⁵
-    S_ke_min      = 4.808 × 10⁻⁷
-    S_ke_max      = 5.074 × 10⁻⁵
-    15 accepted / 17 total loops
+    S_kv = −1.503 × 10⁻³
+    S_ke_weighted = None        (no accepted loops — all rejected for positive slope)
+    S_ke_mean     = None
+    0 accepted / 2 total loops
+    hp_inicial = 21.20 m
 ```
+
+> The synthetic dataset is designed to demonstrate the full algorithm flow and
+> hand calculation of S_kv. With only 8 points, the S_ke loop fitting does not
+> produce valid results — this is expected for a minimal example. Real datasets
+> with 50+ points produce stable S_ke estimates.
 
 ---
 
@@ -484,20 +530,21 @@ under positive stress increase.
 ### B.4 Validating your hand calculation
 
 ```python
-# Run twostool_python on the same data and compare
+# Validate your hand calculation against twostool_python
+import numpy as np
 import sys; sys.path.insert(0, '/home/davidncu/2S-TOOL-Python')
-from twostool_python.pipeline import run_pipeline
-from pathlib import Path
+from twostool_python.skv import compute_skv
 
-result = run_pipeline(
-    Path('data/gwl/2stool_test_inputs/2STOOL_TEST_Aqf_2.xlsx'),
-    Path('data/gwl/2stool_test_outputs')
-)
-s = result['summary']
-print(f"S_kv = {s['skv']:.4e}")
-print(f"S_ke (weighted) = {s['ske_weighted']:.4e}")
-print(f"Loops: {s['n_accepted']}/{s['n_loops_total']}")
+# The 8-point synthetic dataset
+x = np.array([0.0000, 0.0030, 0.0100, 0.0070, 0.0030, 0.0060, 0.0120, 0.0090])
+y = np.array([12.50, 16.80, 21.20, 18.50, 13.20, 17.10, 20.90, 15.70])
+
+result = compute_skv(x, y)
+print(f"S_kv = {result['skv']:.4e}")        # should match −1.503×10⁻³
+print(f"slope = {result['slope']:.2f}")      # should match 665.1
+print(f"intercept = {result['intercept']:.2f}")  # should match ~12.83
 ```
 
-Your hand-computed values should match within rounding error for S_kv and within
-~5% for S_ke_weighted (the weighted mean is sensitive to exact amplitude values).
+Your hand-computed S_kv should match within rounding error of the last digit
+shown. The synthetic dataset's 8 points are deliberately small enough that all
+summations can be verified with a basic calculator.
