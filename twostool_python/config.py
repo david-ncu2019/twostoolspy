@@ -29,6 +29,12 @@ PORCENTAJE = 0.2
 # Output figure resolution in dpi.
 FIGURE_DPI = 600
 
+# Figure dimensions in mm for Elsevier journals.
+# Single column: 90 mm, 1.5 column: 140 mm, Double column: 190 mm.
+FIGURE_WIDTH_MM = 190      # double-column width
+FIGURE_HEIGHT_MM = 140     # ~4:3 aspect ratio
+FIGURE_FONT_SIZE = 8       # readable at journal print size
+
 # Output formats. PNG for development speed and browser preview.
 # Add "tiff" for publication-ready lossless TIFF at 600 dpi.
 FIGURE_FORMATS = ["png"]

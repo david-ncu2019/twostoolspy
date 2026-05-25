@@ -13,7 +13,36 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-from .config import FIGURE_DPI, FIGURE_FORMATS
+from .config import FIGURE_DPI, FIGURE_FORMATS, FIGURE_WIDTH_MM, FIGURE_HEIGHT_MM, FIGURE_FONT_SIZE
+
+
+def _figure_size() -> tuple[float, float]:
+    """Return figure size in inches from config mm values."""
+    return (FIGURE_WIDTH_MM / 25.4, FIGURE_HEIGHT_MM / 25.4)
+
+
+def _journal_style(ax: plt.Axes) -> None:
+    """Apply journal figure style rules."""
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(axis="x", rotation=70)
+    for label in ax.get_xticklabels():
+        label.set_ha("center")
+
+
+def _config_legend(ax: plt.Axes, **kwargs) -> None:
+    """Add legend with journal defaults: no frame, upper right,
+    and 2 columns when 4+ elements."""
+    handles, labels = ax.get_legend_handles_labels()
+    ncol = 2 if len(handles) > 3 else 1
+    ax.legend(
+        handles, labels,
+        loc="upper right",
+        frameon=False,
+        ncol=ncol,
+        fontsize=FIGURE_FONT_SIZE,
+        **kwargs,
+    )
 
 
 def _save_figure(fig, stem: Path) -> None:
@@ -58,8 +87,9 @@ def plot_skv_figure(
     out_stem : str or Path
         Output path without extension.
     """
-    fig, ax = plt.subplots(figsize=(560 / 100, 420 / 100), dpi=100)
+    fig, ax = plt.subplots(figsize=_figure_size(), dpi=100)
     ax.invert_xaxis()
+    _journal_style(ax)
 
     ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
     ax.plot(x_est, y_est, "k--", linewidth=1.5, label=r"Fitted $s_{kv}$")
@@ -78,7 +108,7 @@ def plot_skv_figure(
         bbox={"boxstyle": "square", "facecolor": "white", "edgecolor": "black"},
     )
 
-    ax.legend(loc="lower left")
+    _config_legend(ax)
     fig.tight_layout()
     _save_figure(fig, Path(out_stem))
     plt.close(fig)
@@ -106,8 +136,9 @@ def plot_peaks_figure(
     out_stem : str or Path
         Output path without extension.
     """
-    fig, ax = plt.subplots(figsize=(560 / 100, 420 / 100), dpi=100)
+    fig, ax = plt.subplots(figsize=_figure_size(), dpi=100)
     ax.invert_xaxis()
+    _journal_style(ax)
 
     ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
     ax.plot(x_est, y_est, "k--", linewidth=1.5, label=r"Fitted $s_{kv}$")
@@ -150,7 +181,7 @@ def plot_peaks_figure(
         bbox={"boxstyle": "square", "facecolor": "white", "edgecolor": "black"},
     )
 
-    ax.legend(loc="lower left", fontsize=7)
+    _config_legend(ax)
     fig.tight_layout()
     _save_figure(fig, Path(out_stem))
     plt.close(fig)
@@ -173,8 +204,9 @@ def plot_ske_figure(
     out_stem : str or Path
         Output path without extension.
     """
-    fig, ax = plt.subplots(figsize=(560 / 100, 420 / 100), dpi=100)
+    fig, ax = plt.subplots(figsize=_figure_size(), dpi=100)
     ax.invert_xaxis()
+    _journal_style(ax)
 
     ax.plot(x1, y1, color="0.5", linewidth=0.1)
 
@@ -225,7 +257,9 @@ def plot_ske_figure(
         handles.append(rejected_handle)
         labels.append("Discarded")
     if handles:
-        ax.legend(handles, labels, loc="upper right", fontsize=7)
+        ncol = 2 if len(handles) > 3 else 1
+        ax.legend(handles, labels, loc="upper right", frameon=False,
+                  ncol=ncol, fontsize=FIGURE_FONT_SIZE)
 
     ske_mean = ske_stats.get("ske_mean")
     ske_weighted = ske_stats.get("ske_weighted")
