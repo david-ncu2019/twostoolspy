@@ -35,7 +35,7 @@ value is the most stressed state. The y-axis of the stress-strain curve must inc
 in the direction of increasing effective stress.
 
 ```
-    Example (synthetic dataset, first 3 of 8 field campaigns):
+    Example (synthetic dataset, first 3 of 14 field campaigns):
 
     t            h(t) [m]    E_well [m]    depth(t) [m]
     ──────────   ─────────   ───────────   ────────────
@@ -164,14 +164,15 @@ production analysis.
 
 ## Part B — Hand-worked S_kv and S_ke calculation
 
-We use the **synthetic dataset** from Part A (8 field campaigns, 2018–2019). The data is
-designed to be small enough for hand calculation while forming two clear hysteresis loops.
+We use the **synthetic dataset** from Part A (14 field campaigns, 2017–2020). The data
+forms three clear hysteresis cycles (3 dry seasons) and is small enough that key steps
+can be verified by hand.
 
 ```
-    Reference: twostool_python output on the 8-point synthetic dataset
-    S_kv = −1.503 × 10⁻³
-    n2 = 2 peaks survive x-criterion
-    hp_inicial = 21.20 m
+    Reference: twostool_python output on the 14-point synthetic dataset
+    S_kv = 1.191 × 10⁻³
+    S_ke (weighted) = 1.096 × 10⁻³, 4 accepted / 4 total loops
+    3 peaks survive both criteria, hp_inicial = 21.80 m
 ```
 
 ### B.1 The 12-step algorithm (indexed to match pipeline.py)
@@ -187,58 +188,54 @@ Fit a straight line through ALL (x, y) points:
     S_kv = −1 / slope
 ```
 
-The full 8-point synthetic dataset:
+For hand calculation we use the first 5 of the 14 points:
 
 ```
     i    x (disp, m)     y (depth, m)
     ───  ────────────    ────────────
-    0    0.0000          12.50          ← reference date (t₀)
-    1    0.0030          16.80
-    2    0.0100          21.20          ← peak dry season, deepest water
-    3    0.0070          18.50
-    4    0.0030          13.20          ← wet season recovery
-    5    0.0060          17.10
-    6    0.0120          20.90          ← second dry season peak
-    7    0.0090          15.70
+    0    −0.0000         12.50          ← reference date (t₀)
+    1    −0.0030         16.80          ← dry season onset
+    2    −0.0100         21.20          ← peak dry season, deepest water
+    3    −0.0070         18.50          ← recovering
+    4    −0.0020         13.00          ← wet season
 ```
 
-**Manual linear regression (least squares):**
+**Manual linear regression (least squares) on 5 points:**
 
 ```
-    n = 8
-    Σx = 0 + 0.0030 + 0.0100 + 0.0070 + 0.0030 + 0.0060 + 0.0120 + 0.0090
-       = 0.0500
-    Σy = 12.50 + 16.80 + 21.20 + 18.50 + 13.20 + 17.10 + 20.90 + 15.70
-       = 135.90
-    Σxy = 0×12.50 + 0.0030×16.80 + 0.0100×21.20 + 0.0070×18.50
-        + 0.0030×13.20 + 0.0060×17.10 + 0.0120×20.90 + 0.0090×15.70
-        = 0 + 0.05040 + 0.21200 + 0.12950
-        + 0.03960 + 0.10260 + 0.25080 + 0.14130
-        = 0.92620
-    Σx² = 0² + 0.0030² + 0.0100² + 0.0070² + 0.0030² + 0.0060² + 0.0120² + 0.0090²
-        = 0 + 9.0e-6 + 1.00e-4 + 4.9e-5 + 9.0e-6 + 3.6e-5 + 1.44e-4 + 8.1e-5
-        = 0.000428
-    x̄ = 0.0500 / 8 = 0.00625
-    ȳ = 135.90 / 8 = 16.9875
+    n = 5
+    Σx = 0 + (−0.0030) + (−0.0100) + (−0.0070) + (−0.0020)
+       = −0.0220
+    Σy = 12.50 + 16.80 + 21.20 + 18.50 + 13.00
+       = 82.00
+    Σxy = 0×12.50 + (−0.0030)×16.80 + (−0.0100)×21.20
+        + (−0.0070)×18.50 + (−0.0020)×13.00
+        = 0 − 0.05040 − 0.21200 − 0.12950 − 0.02600
+        = −0.41790
+    Σx² = 0² + (−0.0030)² + (−0.0100)² + (−0.0070)² + (−0.0020)²
+        = 0 + 9.0e-6 + 1.00e-4 + 4.9e-5 + 4.0e-6
+        = 0.000162
+    x̄ = −0.0220 / 5 = −0.00440
+    ȳ = 82.00 / 5 = 16.40
 
     slope = (Σxy − n·x̄·ȳ) / (Σx² − n·x̄²)
-          = (0.92620 − 8 × 0.00625 × 16.9875) / (0.000428 − 8 × 0.00625²)
-          = (0.92620 − 0.84938) / (0.000428 − 0.0003125)
-          = 0.07682 / 0.0001155
-          = 665.1
+          = (−0.41790 − 5 × (−0.00440) × 16.40) / (0.000162 − 5 × 0.00440²)
+          = (−0.41790 + 0.36080) / (0.000162 − 0.0000968)
+          = −0.05710 / 0.0000652
+          = −875.8
 
-    S_kv = −1 / slope = −1 / 665.1 = −1.503 × 10⁻³
+    S_kv = −1 / slope = −1 / (−875.8) = 1.142 × 10⁻³
 ```
 
-**Verification with numpy (twostool_python):**
+**With the full 14 points (numpy):**
 ```
-    slope = 665.15, intercept = 12.83
-    S_kv = −1/665.15 = −1.503 × 10⁻³   ✓
+    slope = −839.76, intercept = 12.08
+    S_kv = −1/(−839.76) = 1.191 × 10⁻³   ✓
 ```
-
-The intercept (12.83 m) is the depth at zero displacement — approximately the
-static water level at the reference date. The positive slope means depth increases
-with compaction, as expected physically.
+The 5-point subset gives S_kv within 4% of the full fit. The negative slope means
+displacement (more negative = more subsidence) and depth increase together — the
+physically correct relationship. The intercept (12.08 m) is approximately the
+static water level at zero displacement.
 
 ---
 
@@ -251,15 +248,15 @@ with compaction, as expected physically.
     porcentaje  = 0.2                           [20% amplitude threshold]
 ```
 
-For the synthetic 8-point dataset:
+For the synthetic 14-point dataset:
 ```
-    y_range = 21.20 − 12.50 = 8.70 m
-    intervalo_y = 0.05 × 8.70 = 0.435 m
+    y_range = 21.80 − 12.50 = 9.30 m
+    intervalo_y = 0.05 × 9.30 = 0.465 m
 
-    x_range = 0.0120 − 0 = 0.0120 m
-    intervalo_x = 0.01 × 0.0120 = 0.00012 m  (1.2 × 10⁻⁴ m)
+    x_range = (−0.0000) − (−0.0120) = 0.0120 m   (max − min)
+    intervalo_x = 0.01 × 0.0120 = 0.00012 m       (1.2 × 10⁻⁴ m)
 
-    hp_inicial = max(y) = 21.20 m
+    hp_inicial = max(y) = 21.80 m
     porcentaje = 0.2
 ```
 
@@ -271,25 +268,36 @@ Walk through the y-series and mark every point that is higher than BOTH neighbou
 (peak) or lower than BOTH neighbours (trough).
 
 ```
-    Synthetic dataset y-values:
+    Synthetic dataset y-values (14 points):
 
-    i:   0       1       2       3       4       5       6       7
-    y:  12.50  16.80  21.20  18.50  13.20  17.10  20.90  15.70
+    i:   0       1       2       3       4       5       6
+    y:  12.50  16.80  21.20  18.50  13.00  17.10  21.50
               ↑              ↑      ↑              ↑
             (rising)       PEAK   TROUGH         PEAK
 
-    Walk through and mark local extrema:
-      i=0: y=12.50 — not a peak (y₁=16.80 > 12.50)
-      i=1: y=16.80 — not a peak (y₂=21.20 > 16.80), not a trough (y₀=12.50 < 16.80)
-      i=2: y=21.20 — PEAK       (both neighbours lower: 16.80 < 21.20 > 18.50)
-      i=3: y=18.50 — not extremum
-      i=4: y=13.20 — TROUGH     (both neighbours higher: 18.50 > 13.20 < 17.10)
-      i=5: y=17.10 — not extremum
-      i=6: y=20.90 — PEAK       (both neighbours lower: 17.10 < 20.90 > 15.70)
-      i=7: y=15.70 — last point, not checked
+    i:   7       8       9      10      11      12      13
+    y:  18.00  13.20  17.40  21.80  18.20  13.50  17.00
+              ↑                      ↑              ↑
+            TROUGH                 PEAK          TROUGH
 
-    Raw peaks:   i=2 (y=21.20), i=6 (y=20.90)
-    Raw troughs: i=4 (y=13.20)
+    Walk through and mark local extrema:
+      i=0:  y=12.50 — not a peak (y₁=16.80 > 12.50)
+      i=1:  y=16.80 — not extremum
+      i=2:  y=21.20 — PEAK   (16.80 < 21.20 > 18.50)
+      i=3:  y=18.50 — not extremum
+      i=4:  y=13.00 — TROUGH (18.50 > 13.00 < 17.10)
+      i=5:  y=17.10 — not extremum
+      i=6:  y=21.50 — PEAK   (17.10 < 21.50 > 18.00)
+      i=7:  y=18.00 — not extremum
+      i=8:  y=13.20 — TROUGH (18.00 > 13.20 < 17.40)
+      i=9:  y=17.40 — not extremum
+      i=10: y=21.80 — PEAK   (17.40 < 21.80 > 18.20)
+      i=11: y=18.20 — not extremum
+      i=12: y=13.50 — TROUGH (18.20 > 13.50 < 17.00)
+      i=13: y=17.00 — last point, not checked
+
+    Raw peaks:   i=2 (y=21.20), i=6 (y=21.50), i=10 (y=21.80)
+    Raw troughs: i=4 (y=13.00), i=8 (y=13.20), i=12 (y=13.50)
 ```
 
 **Boundary trends:**
@@ -297,9 +305,8 @@ Walk through the y-series and mark every point that is higher than BOTH neighbou
     crecealinicio = (first peak idx < first trough idx) = (2 < 4) = True
         → curve starts on a rising/loading limb
 
-    crecealfinal = (last peak idx < last trough idx) = (6 < ???)
-        → no trough after last peak → crecealfinal = False
-        → curve ends on a falling/unloading limb
+    crecealfinal = (last peak idx < last trough idx) = (10 < 12) = True
+        → last extremum is a trough → curve ends on a rising limb
 ```
 
 ---
@@ -310,23 +317,21 @@ Peaks whose displacement values differ by less than `intervalo_x` are merged int
 one group. Only the **highest** (largest y) peak in each group survives.
 
 ```
-    Synthetic dataset: only 2 peaks
+    Synthetic dataset: 3 peaks at i=2, 6, 10
 
-    Peak at i=2: x=0.0100
-    Peak at i=6: x=0.0120
+    |x₂ − x₆| = |−0.0100 − (−0.0110)| = 0.0010 m  > 0.00012 → NOT merged
+    |x₆ − x₁₀| = |−0.0110 − (−0.0120)| = 0.0010 m > 0.00012 → NOT merged
 
-    |x₂ − x₆| = |0.0100 − 0.0120| = 0.0020 m
-    intervalo_x = 0.00012 m
-    0.0020 > 0.00012  →  NOT merged — peaks are far enough apart
-
-    Both peaks survive: imax_ini2 = [2, 6], n2 = 2
-    n2 ≥ 2 → continue (no early exit)
+    All 3 peaks survive: imax_ini2 = [2, 6, 10], n2 = 3
+    n2 ≥ 2 → continue
 ```
 
-Troughs are recomputed between surviving peaks:
+Troughs recomputed between surviving peaks:
 ```
-    Between i=2 and i=6: only trough at i=4 (y=13.20)
-    → imin_ini2 = [4]
+    Between i=2 and i=6:  trough at i=4 (y=13.00)
+    Between i=6 and i=10: trough at i=8 (y=13.20)
+    crecealfinal=True → append last trough at i=12 (y=13.50)
+    → imin_ini2 = [4, 8, 12]
 ```
 
 ---
@@ -338,19 +343,24 @@ A peak survives only if its depth exceeds BOTH neighbouring troughs by at least
 meaningful depth change.
 
 ```
-    crecealinicio = True → use the "starts rising" branch (peaks.py lines 209–235)
+    crecealinicio=True, crecealfinal=True → "starts rising, ends rising" branch
 
-    First peak (i=2, y=21.20): must clear trough[0] AND y[0]
-        y_peak − y_trough = 21.20 − 13.20 = 8.00 > 0.435 ✓
-        y_peak − y[0]     = 21.20 − 12.50 = 8.70 > 0.435 ✓
-        → Peak at i=2 survives
+    First peak (i=2, y=21.20):
+        y_peak − y_trough[0] = 21.20 − 13.00 = 8.20 > 0.465 ✓
+        y_peak − y[0]         = 21.20 − 12.50 = 8.70 > 0.465 ✓
+        → Survives
 
-    crecealfinal = False → last peak (i=6, y=20.90): must clear trough AND final y
-        y_peak − y_trough = 20.90 − 13.20 = 7.70 > 0.435 ✓
-        y_peak − y[-1]    = 20.90 − 15.70 = 5.20 > 0.435 ✓
-        → Peak at i=6 survives
+    Middle peak (i=6, y=21.50):
+        y_peak − y_trough[0]     = 21.50 − 13.00 = 8.50 > 0.465 ✓
+        y_peak − y_trough[1]     = 21.50 − 13.20 = 8.30 > 0.465 ✓
+        → Survives
 
-    Both peaks survive: imax_final = [2, 6], imin_final = [4]
+    Last peak (i=10, y=21.80), crecealfinal=True:
+        y_peak − y_trough[1]     = 21.80 − 13.20 = 8.60 > 0.465 ✓
+        y_peak − y_trough[2]     = 21.80 − 13.50 = 8.30 > 0.465 ✓
+        → Survives
+
+    All 3 peaks survive: imax_final = [2, 6, 10], imin_final = [4, 8, 12]
 ```
 
 ---
@@ -391,20 +401,25 @@ Output: `tramoselasticos` — an array of `[start_idx, end_idx]` for each elasti
 
 For the synthetic dataset:
 ```
-    n_peaks = 2, crecealinicio = True
+    n_peaks = 3, crecealinicio = True, hp_inicial = 21.80
 
-    Period 1: start at imax_final[0] = 2, end at ...
-      ymax = max(21.20, 12.50) = 21.20
-      Find y ≥ 21.20 after i=2: none (ymax=21.20 equals peak at i=2, but the 
-      condition is y > ymax after the peak, not at the peak itself)
-      → No crossing found, end at next peak i=6
-      → tramoselasticos[0] = [2, 6]
+    Period 0: start at y[0] (since y[0]=12.50 < ymax=21.80, head below threshold)
+      ymax = max(21.80, 12.50) = 21.80
+      Find first y ≥ 21.80: none before next peak at i=2
+      → end at i=2 → tramos[0] = [0, 2]
 
-    Period 2: contmax = 2 ≥ n_peaks → no more peaks
-      → elastic period [6, 7] (final segment)
+    Period 1: contmax=1, ymax = max_final[1] = 21.50
+      start = tramos[0][1] = 2 (end of prev elastic)
+      Find first y > 21.50: i=10 (y=21.80 > 21.50)
+      alt1 = 10, alt2 = imax_final[1] = 6
+      end = min(10−1, 6) = 6 → tramos[1] = [2, 6]
 
-    Result: tramoselasticos = [[2, 6], [6, 7]]
-    2 elastic periods identified.
+    Period 2: flag_plastico=True (crossed threshold)
+      start = imax_final[2] = 10, ymax = 21.80
+      end = len(y)−1 = 13 → tramos[2] = [10, 13]
+
+    Result: tramoselasticos = [[0, 2], [2, 6], [6, 10], [10, 13]]
+    4 elastic periods identified.
 ```
 
 ---
@@ -426,30 +441,27 @@ For each elastic period `[start, end]`:
 ```
     Worked example — Period 1: indices [2, 6]
 
-    x_seg:  [ 0.0100, 0.0070, 0.0030, 0.0060, 0.0120 ]
-    y_seg:  [ 21.20,  18.50,  13.20,  17.10,  20.90 ]
-                      ↑ trough at local idx=2 (y=13.20, global idx=4)
+    x_seg:  [ −0.0100, −0.0070, −0.0020, −0.0050, −0.0110 ]
+    y_seg:  [  21.20,   18.50,   13.00,   17.10,   21.50  ]
+                        ↑ trough at local idx=2 (y=13.00, global idx=4)
 
     Loading limb (trough → end):
-    x_load: [ 0.0030, 0.0060, 0.0120 ]
-    y_load: [ 13.20,  17.10,  20.90  ]
+    x_load: [ −0.0020, −0.0050, −0.0110 ]
+    y_load: [  13.00,   17.10,   21.50  ]
 
     Linear fit through 3 points:
-    slope = (20.90 − 13.20) / (0.0120 − 0.0030)
-          = 7.70 / 0.0090
-          = 855.6
+    slope = (21.50 − 13.00) / (−0.0110 − (−0.0020))
+          = 8.50 / (−0.0090)
+          = −944.4
 
-    S_ke = −1 / 855.6 = −1.169 × 10⁻³
+    S_ke = −1 / (−944.4) = 1.059 × 10⁻³
 
-    slope > 0 → rejected (positive slope: as the layer compacts more,
-    water gets shallower — physically impossible during loading).
+    slope < 0 → ACCEPTED (negative slope: as displacement becomes more negative
+    = more subsidence, water gets deeper = more stress — correct loading physics).
 ```
 
-For the synthetic dataset, both elastic periods produce positive slopes on the
-loading limb (the data forms a stress-strain loop where displacement does not
-monotonically increase during loading — a known issue with 8-point sampling of
-a continuous hysteresis curve). With more data points, the loading limbs would
-show correct negative slopes.
+With the negative=subsidence convention, all 4 loading limbs produce negative
+slopes and are accepted by the slope-sign check.
 
 ---
 
@@ -462,9 +474,9 @@ show correct negative slopes.
     Any loop with delta_y < threshold is rejected (accepted flag → 0)
 ```
 
-For the synthetic dataset (2 loops): both have similar amplitudes (~7.7 m).
-Neither is rejected. With only 2 loops and both having similar vertical extent,
-the 20% amplitude threshold has no effect here.
+For the synthetic dataset (4 loops): max amplitude = 8.700 m, threshold = 1.740 m.
+Loop 3 has amplitude 3.500 m > 1.740 m → accepted. All 4 loops pass the amplitude
+threshold. None are rejected by this step.
 
 ---
 
@@ -480,19 +492,24 @@ the 20% amplitude threshold has no effect here.
     S_ke_max      = maximum accepted S_ke
 ```
 
-For the synthetic 8-point dataset (twostool_python output):
+For the synthetic 14-point dataset (twostool_python output):
 ```
-    S_kv = −1.503 × 10⁻³
-    S_ke_weighted = None        (no accepted loops — all rejected for positive slope)
-    S_ke_mean     = None
-    0 accepted / 2 total loops
-    hp_inicial = 21.20 m
+    S_kv = 1.191 × 10⁻³
+    S_ke_weighted = 1.096 × 10⁻³
+    S_ke_mean     = 1.061 × 10⁻³
+    S_ke_std      = 1.494 × 10⁻⁴
+    S_ke_min      = 8.571 × 10⁻⁴
+    S_ke_max      = 1.209 × 10⁻³
+    4 accepted / 4 total loops
+    hp_inicial = 21.80 m
 ```
 
-> The synthetic dataset is designed to demonstrate the full algorithm flow and
-> hand calculation of S_kv. With only 8 points, the S_ke loop fitting does not
-> produce valid results — this is expected for a minimal example. Real datasets
-> with 50+ points produce stable S_ke estimates.
+> The synthetic dataset is designed to be small enough that the S_kv linear
+> regression can be verified by hand (5-point subset: S_kv = 1.142×10⁻³,
+> within 4% of the full 14-point fit). The 14 points are sufficient for the
+> full 12-step algorithm to complete: 3 peaks identified, all survive both
+> criteria, 4 elastic periods produce 4 accepted loops with physically correct
+> negative slopes, and meaningful S_ke statistics are computed.
 
 ---
 
@@ -535,16 +552,20 @@ import numpy as np
 import sys; sys.path.insert(0, '/home/davidncu/2S-TOOL-Python')
 from twostool_python.skv import compute_skv
 
-# The 8-point synthetic dataset
-x = np.array([0.0000, 0.0030, 0.0100, 0.0070, 0.0030, 0.0060, 0.0120, 0.0090])
-y = np.array([12.50, 16.80, 21.20, 18.50, 13.20, 17.10, 20.90, 15.70])
+# The 14-point synthetic dataset (negative=subsidence convention)
+x = np.array([-0.0000, -0.0030, -0.0100, -0.0070, -0.0020,
+              -0.0050, -0.0110, -0.0080, -0.0030, -0.0060,
+              -0.0120, -0.0080, -0.0030, -0.0060])
+y = np.array([12.50, 16.80, 21.20, 18.50, 13.00,
+              17.10, 21.50, 18.00, 13.20, 17.40,
+              21.80, 18.20, 13.50, 17.00])
 
 result = compute_skv(x, y)
-print(f"S_kv = {result['skv']:.4e}")        # should match −1.503×10⁻³
-print(f"slope = {result['slope']:.2f}")      # should match 665.1
-print(f"intercept = {result['intercept']:.2f}")  # should match ~12.83
+print(f"S_kv = {result['skv']:.4e}")         # should be 1.191×10⁻³
+print(f"slope = {result['slope']:.1f}")       # should be −839.8
+print(f"intercept = {result['intercept']:.2f}") # should be ~12.08
 ```
 
-Your hand-computed S_kv should match within rounding error of the last digit
-shown. The synthetic dataset's 8 points are deliberately small enough that all
-summations can be verified with a basic calculator.
+Your 5-point hand-computed S_kv (1.142×10⁻³) should be within ~5% of the
+full 14-point fit. All steps of the algorithm can be traced and verified
+against the values shown in this guide.
