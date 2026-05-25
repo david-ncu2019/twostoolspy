@@ -15,17 +15,13 @@ Runs the full 12-step pipeline on a single stress-strain curve input file:
   12. Write 3 CSV outputs
 """
 
+import json
 import logging
 from pathlib import Path
 
 import numpy as np
 
-from .config import (
-    INTERVALO_Y_FRACTION,
-    INTERVALO_X_FRACTION,
-    HP_INICIAL_DEFAULT,
-    PORCENTAJE,
-)
+from . import config
 from .io_utils import read_excel_input, write_outputs
 from .skv import compute_skv
 from .peaks import (
@@ -84,10 +80,20 @@ def run_pipeline(
     y_est = skv_result["y_est"]
 
     # ── Step 2: Auto-determine parameters ──────────────────────────────
-    intervalo_y = INTERVALO_Y_FRACTION * (np.max(y1) - np.min(y1))
-    intervalo_x = INTERVALO_X_FRACTION * (np.max(x1) - np.min(x1))
-    hp_inicial = HP_INICIAL_DEFAULT if HP_INICIAL_DEFAULT is not None else float(np.max(y1))
-    porcentaje = PORCENTAJE
+    intervalo_y = config.INTERVALO_Y_FRACTION * (np.max(y1) - np.min(y1))
+    intervalo_x = config.INTERVALO_X_FRACTION * (np.max(x1) - np.min(x1))
+    hp_inicial = config.HP_INICIAL_DEFAULT
+    if hp_inicial is None and config.HP_INICIAL_OVERRIDES_PATH:
+        overrides_file = Path(config.HP_INICIAL_OVERRIDES_PATH)
+        if overrides_file.exists():
+            with open(overrides_file) as f:
+                overrides = json.load(f)
+            stem = basename  # e.g. "2STOOL_TUKU_F1"
+            if stem in overrides:
+                hp_inicial = overrides[stem]
+    if hp_inicial is None:
+        hp_inicial = float(np.max(y1))
+    porcentaje = config.PORCENTAJE
 
     logger.info(f"  auto-params: intervalo_y={intervalo_y:.3f}, "
                 f"intervalo_x={intervalo_x:.5f}, hp_inicial={hp_inicial:.2f}")

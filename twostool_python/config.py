@@ -22,6 +22,14 @@ INTERVALO_X_FRACTION = 0.01
 # Set to a float to override with a known historical value.
 HP_INICIAL_DEFAULT = None
 
+# Optional path to a JSON file mapping input file stems to hp_inicial values.
+# Example: {"2STOOL_TUKU_F1": 22.78, "2STOOL_TUKU_F2": 22.51, ...}
+# Set to None (default) for no external overrides — hp_inicial is computed from
+# max(y1) in the input data (or HP_INICIAL_DEFAULT if set).
+# Set to None (default) — hp_inicial is computed from max(y1) in the input data.
+# Point to a JSON file with per-input-file hp_inicial values to override.
+HP_INICIAL_OVERRIDES_PATH: str | None = None
+
 # Discard elastic loops whose vertical amplitude is less than this fraction
 # of the largest loop's amplitude.
 PORCENTAJE = 0.2
