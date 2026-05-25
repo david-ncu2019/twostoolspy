@@ -46,72 +46,80 @@ in the direction of increasing effective stress.
                      from levelling survey
 ```
 
-### A.3 Step 2: Compute ground displacement
+### A.3 Step 2: Compute ground displacement from ring elevation
 
-There are three common sources. 2S-TOOL accepts any of them — the algorithm operates on
-relative changes in x, not on absolute values.
+**This is the primary, most fundamental method.** The raw field measurement is the
+absolute elevation of each magnetic ring (metres above sea level), measured by
+leveling survey at each field campaign. The deepest ring is anchored in bedrock or a
+stable reference datum.
 
-#### Source 1: MLCW ring-level cumulative compaction (project default)
+#### From ring elevation to layer compaction
 
-The standard project pipeline (`prepare_2stool_inputs.py --raw`) reads raw ring-by-ring
-MLCW measurements, sums rings within each hydrogeological layer, and converts to metres:
-
-```
-    disp(t) = compaction_MM(t) / 1000        [mm → m]
-```
-
-where `compaction_MM(t)` is the cumulative compaction (mm) at time `t` since the MLCW
-station was installed. Values are **negative** in the project sign convention
-(negative = subsidence). The first value is NOT zero — compaction was already
-accumulating before the first InSAR-aligned date.
+Each ring `k` has an absolute elevation `z_k(t)` at campaign date `t`. A hydrogeological
+layer is the interval between two rings (upper ring `u`, lower ring `ℓ`):
 
 ```
-    Example: TUKU_F1 real input file (159 points, 2015–2025):
+    L(t) = z_u(t) − z_ℓ(t)              [layer thickness at time t, m]
+```
 
-    disp range: [−0.029, −0.011] m
+Compaction is the reduction in layer thickness since a reference date `t_ref` (typically
+the first field campaign):
+
+```
+    disp(t) = L(t_ref) − L(t)           [cumulative compaction since t_ref, m]
+```
+
+At `t = t_ref`, `disp(t_ref) = 0` by definition. Positive values = compaction (layer got
+thinner). This is the physically intuitive convention.
+
+```
+    Worked example — TUKU F2 layer (rings at 50.306 m and 156.590 m depth):
+
+    t              z_upper    z_lower    L(t)       disp(t) [m]
+    ────────────   ────────   ────────   ────────   ────────────
+    2003-12-03     50.306     156.590    106.284    0.000    ← t_ref, zero by definition
+    2004-01-09     50.302     156.588    106.286   −0.002    ← heave (negative comp.)
+    2004-02-12     50.300     156.585    106.285   −0.001
+    2015-01-16     50.250     156.540    106.290   −0.006
+    2025-10-02     50.220     156.510    106.290   −0.006
+                           ↓
+    ring elevations drop over time → L decreases → positive disp = compaction
+```
+
+Multiple rings within the same hydrogeological layer are summed:
+
+```
+    disp_layer(t) = Σ [L_k(t_ref) − L_k(t)]     for all rings k in the layer
+```
+
+#### How the project pipeline uses this data
+
+The file `data/mlcw/raw_timeseries/{STATION}_ringbyring.csv` (produced by earlier
+processing steps) already contains per-ring cumulative compaction in mm, referenced
+to the first campaign date. `prepare_2stool_inputs.py --raw` reads this file,
+sums rings within each layer group, and converts mm → m:
+
+```
+    disp(t) = Σ ring_compaction_k(t) / 1000     [mm → m, zero at t_ref]
+```
+
+The data is zero-referenced — if you trace back to the first campaign, `disp = 0`.
+However, the **output Excel may show a non-zero first row** because the pipeline
+inner-joins MLCW dates with GWL dates. The earliest common date may be later than
+`t_ref`, by which time some compaction has already accumulated.
+
+```
+    TUKU_F1 real output (159 points after MLCW-GWL join):
+
+    disp range: [−0.029, −0.011] m     ← sign convention: negative = subsidence
     depth range: [8.24, 22.36] m
-
-    First row:  x = −0.01172 m  (already ~12 mm of compaction by Jan 2015)
-    Last row:   x = −0.02801 m  (~28 mm cumulative by Dec 2025)
+    First row:  x = −0.01172 m         ← not zero because first common GWL date
+                                          (Jan 2015) is 11 years after t_ref (Dec 2003)
 ```
 
-#### Source 2: MLCW reconstructed layer-grouped data
-
-The `--no-raw` flag uses precomputed reconstructed data from
-`data/mlcw/group_byLayer/{STATION}_reconst_grouped.csv`. Same mm→m conversion and sign
-convention applies.
-
-#### Source 3: Manual from ring absolute elevation
-
-If you have raw leveling measurements of individual magnetic rings:
-
-```
-    L(t) = z_ring_upper(t) − z_ring_lower(t)     [layer thickness, m]
-    disp(t) = L(t) − L(t_ref)                    [compaction since reference, m]
-```
-
-where `t_ref` can be the first measurement date. This gives **positive** values for
-compaction. 2S-TOOL accepts either sign convention — the S_kv and S_ke magnitude is
-unchanged; only the sign of the output S values flips.
-
-```
-    Example: ring elevations at t_ref = 2003-12-06
-
-    t           z_upper [m]   z_lower [m]   L(t) [m]    disp(t) [m]
-    ─────────   ───────────   ───────────   ─────────   ───────────
-    2003-12-06     8.775        11.938        3.163       0.000
-    2004-01-15     8.760        11.920        3.160       0.003
-    2004-03-01     8.750        11.910        3.160       0.003
-                        ↓
-            ring sinks → L decreases → positive disp = compaction
-```
-
-#### Source 4: InSAR surface displacement
-
-If you use InSAR surface displacement directly (e.g., from
-`data/insar/InSAR_measures_at_MLCW.csv`), values are already in metres. The project
-convention is positive = subsidence (InSAR is negated on load), so no conversion is
-needed — but check your dataset's sign convention.
+The sign convention in the project files is negative = subsidence. 2S-TOOL accepts
+either sign — the magnitude of S_kv and S_ke is unchanged; only the sign of the
+output flips.
 
 ### A.4 Step 3: Assemble the stress-strain table
 
