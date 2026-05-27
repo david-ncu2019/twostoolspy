@@ -43,17 +43,24 @@ def read_excel_input(filepath: str | Path) -> dict:
             f"Length mismatch: {len(x1)} displacement values vs {len(y1)} GWL depth values"
         )
 
+    # Read dates from column A if present; None for old files without dates
+    dates_raw = sheet.iloc[1:, 0]
+    if dates_raw.notna().any():
+        dates = pd.to_datetime(dates_raw, errors="coerce").to_numpy()
+    else:
+        dates = None
+
     # Read optional parameter overrides from InputData sheet
     params = _read_inputdata_sheet(filepath)
 
-    return {"x1": x1, "y1": y1, "filename": filename, "params": params}
+    return {"x1": x1, "y1": y1, "dates": dates, "filename": filename, "params": params}
 
 
 def _read_inputdata_sheet(filepath: Path) -> dict:
     """Read parameter overrides from the InputData sheet if present.
 
-    The sheet may contain station-specific calibration values for:
-    intervalo_y, intervalo_x, hp_inicial, porcentaje.
+    Reads hp_inicial from cell B2 and any additional key-value pairs
+    from subsequent rows.
 
     Returns empty dict if the sheet is absent or empty.
     """
@@ -74,9 +81,12 @@ def _read_inputdata_sheet(filepath: Path) -> dict:
         return {}
 
     params = {}
-    # InputData sheet is created empty by prepare_2stool_inputs.py.
-    # No station-specific overrides are currently written there.
-    # If future scripts populate this sheet, add parsing logic here.
+    # Cell B2 (row 1, col 1 in 0-based) = hp_inicial override
+    if df.shape[0] >= 2 and df.shape[1] >= 2:
+        hp_val = df.iloc[1, 1]
+        if pd.notna(hp_val):
+            params["hp_inicial"] = float(hp_val)
+
     return params
 
 

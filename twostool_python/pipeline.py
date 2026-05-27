@@ -20,6 +20,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from . import config
 from .io_utils import read_excel_input, write_outputs
@@ -35,6 +36,91 @@ from .ske import fit_ske_loops, reject_small_loops, aggregate_ske_stats
 from .visualize import plot_skv_figure, plot_peaks_figure, plot_ske_figure
 
 logger = logging.getLogger(__name__)
+
+
+def _get_hc_from_well_timeseries(basename: str) -> float | None:
+    """Derive preconsolidation head from long-term well_timeseries records.
+
+    Parses the input filename (e.g. "2STOOL_TUKU_F2") to extract station
+    and layer, looks up the assigned wellcode and well_timeseries feather
+    path in the assignment CSV, then computes hc as the maximum historical
+    GWL depth (well elevation minus minimum piezometric head).
+
+    Returns None if any lookup step fails.
+    """
+    assignment_path = config.HC_ASSIGNMENT_CSV
+    well_ts_dir = config.HC_WELL_TIMESERIES_DIR
+    elevations_path = config.HC_WELL_ELEVATIONS_CSV
+
+    if not all([assignment_path, well_ts_dir, elevations_path]):
+        return None
+
+    # Parse basename → station + layer
+    parts = basename.split("_", 2)
+    if len(parts) < 3 or parts[0] != "2STOOL":
+        return None
+    station, layer = parts[1], parts[2]
+
+    # Look up in assignment CSV
+    try:
+        assign = pd.read_csv(assignment_path, dtype={"assigned_wellcode": str})
+    except Exception:
+        logger.warning("Could not read assignment CSV: %s", assignment_path)
+        return None
+
+    row = assign[(assign["station"] == station) & (assign["layer"] == layer)]
+    if len(row) == 0:
+        return None
+
+    row = row.iloc[0]
+    wellcode = str(row["assigned_wellcode"]).strip().zfill(8)
+    feather_rel = str(row.get("feather_file", ""))
+    if not feather_rel or feather_rel == "nan":
+        return None
+
+    # Resolve feather path (feather_file is relative to project root,
+    # well_ts_dir is absolute; prefer joining the feather filename to
+    # the well_ts_dir if possible)
+    feather_name = Path(feather_rel).name
+    feather_path = Path(well_ts_dir) / feather_name
+    if not feather_path.exists():
+        logger.warning("well_timeseries feather not found: %s", feather_path)
+        return None
+
+    # Load feather and extract wellcode column
+    try:
+        gwl_df = pd.read_feather(feather_path)
+    except Exception:
+        logger.warning("Could not read well_timeseries feather: %s", feather_path)
+        return None
+
+    if wellcode not in gwl_df.columns:
+        return None
+
+    head = gwl_df[wellcode].dropna()
+    if len(head) == 0:
+        return None
+
+    # Look up well elevation
+    try:
+        wells = pd.read_csv(elevations_path, dtype={"wellcode": str})
+    except Exception:
+        logger.warning("Could not read elevations CSV: %s", elevations_path)
+        return None
+
+    elev_row = wells[wells["wellcode"].str.strip() == wellcode]
+    if len(elev_row) == 0:
+        return None
+
+    elev_m = float(elev_row.iloc[0]["elev_leveling_m"])
+
+    # hc = depth when head is lowest (deepest GWL = preconsolidation)
+    hc = elev_m - float(head.min())
+    logger.info(
+        "  hc from well_timeseries: elev=%.2f - min_head=%.2f = %.2f m",
+        elev_m, head.min(), hc,
+    )
+    return hc
 
 
 def run_pipeline(
@@ -64,7 +150,9 @@ def run_pipeline(
     data = read_excel_input(input_path)
     x1 = data["x1"]
     y1 = data["y1"]
+    dates = data.get("dates")
     basename = data["filename"]
+    params = data.get("params", {})
 
     out_subdir = output_dir / basename
     out_subdir.mkdir(parents=True, exist_ok=True)
@@ -83,23 +171,37 @@ def run_pipeline(
     intervalo_y = config.INTERVALO_Y_FRACTION * (np.max(y1) - np.min(y1))
     intervalo_x = config.INTERVALO_X_FRACTION * (np.max(x1) - np.min(x1))
     hp_inicial = config.HP_INICIAL_DEFAULT
+
+    # ── Priority 2: JSON overrides file ─────────────────────────────
     if hp_inicial is None and config.HP_INICIAL_OVERRIDES_PATH:
         overrides_file = Path(config.HP_INICIAL_OVERRIDES_PATH)
         if overrides_file.exists():
             with open(overrides_file) as f:
                 overrides = json.load(f)
-            stem = basename  # e.g. "2STOOL_TUKU_F1"
-            if stem in overrides:
-                hp_inicial = overrides[stem]
+            if basename in overrides:
+                hp_inicial = overrides[basename]
+                logger.info("  hp_inicial from overrides JSON: %.2f", hp_inicial)
+
+    # ── Priority 3: InputData sheet (populated by prepare_2stool_inputs) ──
+    if hp_inicial is None and params.get("hp_inicial") is not None:
+        hp_inicial = float(params["hp_inicial"])
+        logger.info("  hp_inicial from InputData sheet: %.2f", hp_inicial)
+
+    # ── Priority 4: well_timeseries long-term records ─────────────────
+    if hp_inicial is None:
+        hp_inicial = _get_hc_from_well_timeseries(basename)
+
+    # ── Fallback: max depth in input curve ───────────────────────────
     if hp_inicial is None:
         hp_inicial = float(np.max(y1))
+        logger.info("  hp_inicial from max(y1): %.2f", hp_inicial)
     porcentaje = config.PORCENTAJE
 
     logger.info(f"  auto-params: intervalo_y={intervalo_y:.3f}, "
                 f"intervalo_x={intervalo_x:.5f}, hp_inicial={hp_inicial:.2f}")
 
     # ── Fig02: S_kv figure (always generated) ──────────────────────────
-    plot_skv_figure(x1, y1, x_est, y_est, skv,
+    plot_skv_figure(x1, y1, x_est, y_est, skv, dates,
                     out_subdir / f"{basename}_Fig02_skv_jva")
 
     # ── Step 3: Find all local extrema ─────────────────────────────────
@@ -158,6 +260,7 @@ def run_pipeline(
     plot_peaks_figure(
         x1, y1, x_est, y_est, skv,
         imax_ini2, imin_ini2, imax_final, imin_final,
+        dates,
         out_subdir / f"{basename}_Fig02_skv_jva_v2",
     )
 
@@ -176,7 +279,7 @@ def run_pipeline(
     # ── Fig03: S_ke figure ─────────────────────────────────────────────
     plot_ske_figure(
         x1, y1, tramoselasticos, AjusTramElas,
-        xdemax_final, max_final, ske_stats,
+        xdemax_final, max_final, ske_stats, dates,
         out_subdir / f"{basename}_Fig03_ske_jva",
     )
 

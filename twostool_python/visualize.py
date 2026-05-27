@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from pathlib import Path
 
 from .config import FIGURE_DPI, FIGURE_FORMATS, FIGURE_WIDTH_MM, FIGURE_HEIGHT_MM, FIGURE_FONT_SIZE
@@ -45,6 +46,21 @@ def _config_legend(ax: plt.Axes, **kwargs) -> None:
     )
 
 
+def _seasonal_mask(dates) -> tuple:
+    """Return boolean masks for dry and wet season points.
+
+    Dry season: Nov–Apr (months 11, 12, 1, 2, 3, 4)  → orangered
+    Wet season: May–Oct (months 5–10)                  → dodgerblue
+
+    Returns (dry_mask, wet_mask) or (None, None) if dates unavailable.
+    """
+    if dates is None:
+        return None, None
+    months = pd.DatetimeIndex(dates).month
+    dry_mask = np.isin(months, [11, 12, 1, 2, 3, 4])
+    return dry_mask, ~dry_mask
+
+
 def _save_figure(fig, stem: Path) -> None:
     """Save a matplotlib figure in all configured formats.
 
@@ -72,6 +88,7 @@ def plot_skv_figure(
     x_est: np.ndarray,
     y_est: np.ndarray,
     skv: float,
+    dates,
     out_stem: str | Path,
 ) -> None:
     """Figure 2: Full stress-strain cloud with S_kv envelope line.
@@ -84,6 +101,8 @@ def plot_skv_figure(
         Two-point envelope line endpoints.
     skv : float
         Anelastic storage coefficient.
+    dates : np.ndarray or None
+        Datetime array aligned with x1/y1; enables dry/wet seasonal coloring.
     out_stem : str or Path
         Output path without extension.
     """
@@ -91,7 +110,18 @@ def plot_skv_figure(
     ax.invert_xaxis()
     _journal_style(ax)
 
-    ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
+    dry_mask, wet_mask = _seasonal_mask(dates)
+    if dry_mask is not None:
+        season_color = np.where(dry_mask, "orangered", "dodgerblue")
+        for i in range(len(x1) - 1):
+            ax.plot([x1[i], x1[i + 1]], [y1[i], y1[i + 1]],
+                    "--", color=season_color[i], linewidth=1.5, alpha=0.5, zorder=1)
+        ax.scatter(x1[dry_mask], y1[dry_mask], s=4, color="orangered",
+                   alpha=0.6, linewidths=0, label="Dry (Nov–Apr)", zorder=2)
+        ax.scatter(x1[wet_mask], y1[wet_mask], s=4, color="dodgerblue",
+                   alpha=0.6, linewidths=0, label="Wet (May–Oct)", zorder=2)
+    else:
+        ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
     ax.plot(x_est, y_est, "k--", linewidth=1.5, label=r"Fitted $s_{kv}$")
 
     ax.set_xlabel("Ground displacement (m)")
@@ -124,6 +154,7 @@ def plot_peaks_figure(
     imin_ini2: np.ndarray,
     imax_final: np.ndarray,
     imin_final: np.ndarray,
+    dates,
     out_stem: str | Path,
 ) -> None:
     """Figure 2 v2: Stress-strain cloud with peak/trough markers.
@@ -133,6 +164,8 @@ def plot_peaks_figure(
 
     Parameters
     ----------
+    dates : np.ndarray or None
+        Datetime array aligned with x1/y1; enables dry/wet seasonal coloring.
     out_stem : str or Path
         Output path without extension.
     """
@@ -140,7 +173,18 @@ def plot_peaks_figure(
     ax.invert_xaxis()
     _journal_style(ax)
 
-    ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
+    dry_mask, wet_mask = _seasonal_mask(dates)
+    if dry_mask is not None:
+        season_color = np.where(dry_mask, "orangered", "dodgerblue")
+        for i in range(len(x1) - 1):
+            ax.plot([x1[i], x1[i + 1]], [y1[i], y1[i + 1]],
+                    "--", color=season_color[i], linewidth=1.5, alpha=0.5, zorder=1)
+        ax.scatter(x1[dry_mask], y1[dry_mask], s=4, color="orangered",
+                   alpha=0.4, linewidths=0, label="Dry (Nov–Apr)", zorder=2)
+        ax.scatter(x1[wet_mask], y1[wet_mask], s=4, color="dodgerblue",
+                   alpha=0.4, linewidths=0, label="Wet (May–Oct)", zorder=2)
+    else:
+        ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
     ax.plot(x_est, y_est, "k--", linewidth=1.5, label=r"Fitted $s_{kv}$")
 
     # Peaks/troughs after x-criterion only (transparent)
@@ -195,6 +239,7 @@ def plot_ske_figure(
     xdemax_final: np.ndarray,
     max_final: np.ndarray,
     ske_stats: dict,
+    dates,
     out_stem: str | Path,
 ) -> None:
     """Figure 3: Elastic loops colour-coded with accepted/rejected S_ke fits.
@@ -208,15 +253,12 @@ def plot_ske_figure(
     ax.invert_xaxis()
     _journal_style(ax)
 
-    ax.plot(x1, y1, color="0.5", linewidth=0.1)
-
     ax.scatter(xdemax_final, max_final, marker="d", edgecolors="blue",
-               facecolors="none", alpha=0.3, s=30)
+               facecolors="none", alpha=0.5, s=30)
 
     ax.set_xlabel("Ground displacement (m)")
     ax.set_ylabel("Groundwater depth (m)")
 
-    colors = plt.cm.tab10(np.linspace(0, 1, max(len(tramoselasticos), 1)))
     has_accepted = False
     has_rejected = False
     accepted_handle = None
@@ -224,29 +266,36 @@ def plot_ske_figure(
 
     for i in range(len(tramoselasticos)):
         start, end = tramoselasticos[i]
-        color = colors[i % 10]
 
         ax.plot(x1[start:end + 1], y1[start:end + 1],
-                color=color, linewidth=1.5)
+                color="0.6", linewidth=1.0, alpha=0.5, zorder=1)
 
         if not np.isnan(AjusTramElas[i, 0]):
             if AjusTramElas[i, 9] == 1:
                 linecolor = "black"
-                lw = 1.5
                 if not has_accepted:
                     accepted_handle = plt.Line2D(
-                        [0], [0], color="black", linestyle="--", linewidth=1.5)
+                        [0], [0], color="black", linestyle="--", linewidth=2)
                     has_accepted = True
             else:
                 linecolor = "red"
-                lw = 1.5
                 if not has_rejected:
                     rejected_handle = plt.Line2D(
-                        [0], [0], color="red", linestyle="--", linewidth=1.5)
+                        [0], [0], color="red", linestyle="--", linewidth=2)
                     has_rejected = True
 
             ax.plot(AjusTramElas[i, 2:4], AjusTramElas[i, 4:6],
-                    linestyle="--", color=linecolor, linewidth=lw)
+                    linestyle="--", color=linecolor, linewidth=2, zorder=4)
+
+    # Seasonal trajectory drawn last so it sits on top of tab10 elastic loop colors
+    dry_mask, wet_mask = _seasonal_mask(dates)
+    if dry_mask is not None:
+        season_color = np.where(dry_mask, "orangered", "dodgerblue")
+        for i in range(len(x1) - 1):
+            ax.plot([x1[i], x1[i + 1]], [y1[i], y1[i + 1]],
+                    color=season_color[i], linewidth=1.5, alpha=0.4, zorder=3)
+    else:
+        ax.plot(x1, y1, color="0.5", linewidth=0.8, alpha=0.4, zorder=3)
 
     handles = []
     labels = []

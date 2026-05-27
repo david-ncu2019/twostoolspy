@@ -34,6 +34,20 @@ HP_INICIAL_OVERRIDES_PATH: str | None = None
 # of the largest loop's amplitude.
 PORCENTAJE = 0.2
 
+# ── Preconsolidation head from well_timeseries ──────────────────────────
+# Directory containing {GWL_STATION}_gwl_timeseries.feather files with
+# daily long-term GWL records (dating back to 2000). When set, the pipeline
+# derives hp_inicial from the historical maximum GWL depth in these records.
+# Requires HC_ASSIGNMENT_CSV and HC_WELL_ELEVATIONS_CSV to also be set.
+HC_WELL_TIMESERIES_DIR: str | None = None
+
+# Path to GWL-to-MLCW layer assignment CSV (v3), mapping each
+# (station, layer) to its gwl_station, wellcode, and feather_file.
+HC_ASSIGNMENT_CSV: str | None = None
+
+# Path to allwells flat CSV for well elevation (elev_leveling_m) lookup.
+HC_WELL_ELEVATIONS_CSV: str | None = None
+
 # Output figure resolution in dpi.
 FIGURE_DPI = 600
 
