@@ -6,16 +6,18 @@ Parameters can be overridden per-station via the InputData sheet in the Excel fi
 
 # Fraction of GWL depth range — min depth difference between a maximum and its
 # following minimum to define an elastic-inelastic interval.
-# Note: the MATLAB original uses an absolute threshold of 20 m (suited to deep
-# Spanish aquifer datasets, GWL ~300 m). For the Taiwan dataset (GWL depth 5–25 m),
-# a 20 m absolute threshold would eliminate all peaks. The fraction-based approach
-# (5% of the depth range, ≈0.5 m for Taiwan) is intentionally used here instead.
+# Identical to the MATLAB original (A02_StressStrain_Ske_Skv_Part2.m, line 96):
+#   intervalo_y = 0.05 * (max(y1) - min(y1));
+# This fraction-based approach scales with the data. For the Taiwan dataset
+# (GWL depth 5–25 m), this yields ~0.25–1.25 m; for the published Spanish
+# aquifers (GWL depth ~300 m), ~15 m.
 INTERVALO_Y_FRACTION = 0.05
 
 # Fraction of displacement range — min displacement difference between two
 # maxima to treat them as distinct.
-# The MATLAB original uses an absolute 0.01 m. At 1% of the displacement range
-# this is comparable for Taiwan data (range ~0.1–0.2 m → threshold ~0.001–0.002 m).
+# Identical to the MATLAB original (A02_StressStrain_Ske_Skv_Part2.m, line 97):
+#   intervalo_x = 0.01 * (max(x1) - min(x1));
+# For Taiwan data (range ~0.03 m), this yields ~0.0003 m.
 INTERVALO_X_FRACTION = 0.01
 
 # Preconsolidation head. None means compute at runtime as max(y1).
