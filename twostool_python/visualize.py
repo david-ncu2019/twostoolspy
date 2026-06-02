@@ -38,7 +38,7 @@ def _config_legend(ax: plt.Axes, **kwargs) -> None:
     ncol = 2 if len(handles) > 3 else 1
     ax.legend(
         handles, labels,
-        loc="upper right",
+        loc="upper left",
         frameon=False,
         ncol=ncol,
         fontsize=FIGURE_FONT_SIZE,
@@ -115,16 +115,16 @@ def plot_skv_figure(
         season_color = np.where(dry_mask, "orangered", "dodgerblue")
         for i in range(len(x1) - 1):
             ax.plot([x1[i], x1[i + 1]], [y1[i], y1[i + 1]],
-                    "--", color=season_color[i], linewidth=1.5, alpha=0.5, zorder=1)
-        ax.scatter(x1[dry_mask], y1[dry_mask], s=4, color="orangered",
+                    ls=(0, (5, 1)), color=season_color[i], linewidth=1.5, alpha=0.5, zorder=1)
+        ax.scatter(x1[dry_mask], y1[dry_mask], s=10, color="orangered",
                    alpha=0.6, linewidths=0, label="Dry (Nov–Apr)", zorder=2)
-        ax.scatter(x1[wet_mask], y1[wet_mask], s=4, color="dodgerblue",
+        ax.scatter(x1[wet_mask], y1[wet_mask], s=10, color="dodgerblue",
                    alpha=0.6, linewidths=0, label="Wet (May–Oct)", zorder=2)
     else:
         ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
-    ax.plot(x_est, y_est, "k--", linewidth=1.5, label=r"Fitted $s_{kv}$")
+    ax.plot(x_est, y_est, "k--", linewidth=2, label=r"Fitted $s_{kv}$")
 
-    ax.set_xlabel("Ground displacement (m)")
+    ax.set_xlabel("Cumulative displacement (m)")
     ax.set_ylabel("Groundwater depth (m)")
 
     # S_kv text box
@@ -132,8 +132,8 @@ def plot_skv_figure(
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
     ax.text(
-        xlim[1] - 0.05 * (xlim[1] - xlim[0]),
-        ylim[0] + 0.10 * (ylim[1] - ylim[0]),
+        xlim[1] - 0.2 * (xlim[1] - xlim[0]),
+        ylim[0] + 0.05 * (ylim[1] - ylim[0]),
         text_str,
         bbox={"boxstyle": "square", "facecolor": "white", "edgecolor": "black"},
     )
@@ -178,14 +178,14 @@ def plot_peaks_figure(
         season_color = np.where(dry_mask, "orangered", "dodgerblue")
         for i in range(len(x1) - 1):
             ax.plot([x1[i], x1[i + 1]], [y1[i], y1[i + 1]],
-                    "--", color=season_color[i], linewidth=1.5, alpha=0.5, zorder=1)
+                    ls=(0, (5, 1)), color=season_color[i], linewidth=1.5, alpha=0.5, zorder=1)
         ax.scatter(x1[dry_mask], y1[dry_mask], s=4, color="orangered",
                    alpha=0.4, linewidths=0, label="Dry (Nov–Apr)", zorder=2)
         ax.scatter(x1[wet_mask], y1[wet_mask], s=4, color="dodgerblue",
                    alpha=0.4, linewidths=0, label="Wet (May–Oct)", zorder=2)
     else:
         ax.plot(x1, y1, "k", linewidth=0.5, label="Observed")
-    ax.plot(x_est, y_est, "k--", linewidth=1.5, label=r"Fitted $s_{kv}$")
+    ax.plot(x_est, y_est, "k--", linewidth=2, label=r"Fitted $s_{kv}$")
 
     # Peaks/troughs after x-criterion only (transparent)
     ax.scatter(
@@ -211,7 +211,7 @@ def plot_peaks_figure(
         label=r"Troughs ($\Delta$x,$\Delta$y)",
     )
 
-    ax.set_xlabel("Ground displacement (m)")
+    ax.set_xlabel("Cumulative displacement (m)")
     ax.set_ylabel("Groundwater depth (m)")
 
     # S_kv text box
@@ -219,8 +219,8 @@ def plot_peaks_figure(
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
     ax.text(
-        xlim[1] - 0.05 * (xlim[1] - xlim[0]),
-        ylim[0] + 0.10 * (ylim[1] - ylim[0]),
+        xlim[1] - 0.2 * (xlim[1] - xlim[0]),
+        ylim[0] + 0.05 * (ylim[1] - ylim[0]),
         text_str,
         bbox={"boxstyle": "square", "facecolor": "white", "edgecolor": "black"},
     )
@@ -254,9 +254,9 @@ def plot_ske_figure(
     _journal_style(ax)
 
     ax.scatter(xdemax_final, max_final, marker="d", edgecolors="blue",
-               facecolors="none", alpha=0.5, s=30)
+               facecolors="none", alpha=0.6, s=40)
 
-    ax.set_xlabel("Ground displacement (m)")
+    ax.set_xlabel("Cumulative displacement (m)")
     ax.set_ylabel("Groundwater depth (m)")
 
     has_accepted = False
@@ -267,8 +267,8 @@ def plot_ske_figure(
     for i in range(len(tramoselasticos)):
         start, end = tramoselasticos[i]
 
-        ax.plot(x1[start:end + 1], y1[start:end + 1],
-                color="0.6", linewidth=1.0, alpha=0.5, zorder=1)
+        # ax.plot(x1[start:end + 1], y1[start:end + 1],
+        #         color="magenta", linewidth=1.0, alpha=0.5, zorder=1)
 
         if not np.isnan(AjusTramElas[i, 0]):
             if AjusTramElas[i, 9] == 1:
@@ -293,7 +293,7 @@ def plot_ske_figure(
         season_color = np.where(dry_mask, "orangered", "dodgerblue")
         for i in range(len(x1) - 1):
             ax.plot([x1[i], x1[i + 1]], [y1[i], y1[i + 1]],
-                    color=season_color[i], linewidth=1.5, alpha=0.4, zorder=3)
+                    color=season_color[i], linewidth=1.5, ls=(0, (5, 1)),alpha=0.3, zorder=3)
     else:
         ax.plot(x1, y1, color="0.5", linewidth=0.8, alpha=0.4, zorder=3)
 
@@ -307,7 +307,7 @@ def plot_ske_figure(
         labels.append("Discarded")
     if handles:
         ncol = 2 if len(handles) > 3 else 1
-        ax.legend(handles, labels, loc="upper right", frameon=False,
+        ax.legend(handles, labels, loc="upper left", frameon=False,
                   ncol=ncol, fontsize=FIGURE_FONT_SIZE)
 
     ske_mean = ske_stats.get("ske_mean")
@@ -327,7 +327,7 @@ def plot_ske_figure(
                 f"$s_{{ke\\ weighted}}$ = {ske_weighted:10.3e}"
             )
         ax.text(
-            0.98, 0.08, text_str,
+            0.98, 0.05, text_str,
             transform=ax.transAxes, ha="right", va="bottom",
             bbox={"boxstyle": "square", "facecolor": "white", "edgecolor": "black"},
             fontsize=9,
